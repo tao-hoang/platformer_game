@@ -12,12 +12,14 @@ pygame.display.set_caption("Platformer Game")
 # Colors
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
+PURPLE = (128, 0, 128)
+GREY = (128, 128, 128)
 
 class Platform(pygame.sprite.Sprite):
     def __init__(self, x, y, width, height):
         super().__init__()
         self.image = pygame.Surface((width, height))
-        self.image.fill(BLACK)
+        self.image.fill(GREY)
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
@@ -25,8 +27,10 @@ class Platform(pygame.sprite.Sprite):
 class Player(pygame.sprite.Sprite):
     def __init__(self, platforms):
         super().__init__()
-        self.image = pygame.Surface((50, 50))
-        self.image.fill(BLACK)
+        self.spritesheet = pygame.image.load('assets/player_spritesheet.png').convert_alpha()
+        self.frame_width = 64
+        self.frame_height = 64
+        self.image = self.get_image(0)  # Initial frame
         self.rect = self.image.get_rect()
         self.rect.x = 100
         self.rect.y = 500
@@ -46,6 +50,15 @@ class Player(pygame.sprite.Sprite):
         self.last_key_time = {'left': 0, 'right': 0}
         self.double_tap_threshold = 200  # in milliseconds
         self.ghost_trail = []  # List to hold ghost trail images
+        self.frame = 0  # Current frame
+        self.animation_speed = 0.2  # Speed of animation (in seconds)
+        self.last_update = pygame.time.get_ticks()
+        self.facing_right = True  # Track direction
+
+    def get_image(self, frame):
+        rect = pygame.Rect(0, frame * self.frame_height, self.frame_width, self.frame_height)
+        image = self.spritesheet.subsurface(rect).copy()
+        return image
 
     def update(self):
         if self.dashing:
@@ -64,6 +77,15 @@ class Player(pygame.sprite.Sprite):
         self.rect.y += self.change_y
         self.check_collision('y')
 
+        # Animation handling
+        now = pygame.time.get_ticks()
+        if now - self.last_update > self.animation_speed * 1000:  # Convert to milliseconds
+            self.last_update = now
+            self.frame = (self.frame + 1) % 2  # Assuming 2 frames in the sprite sheet
+            self.image = self.get_image(self.frame)
+            if not self.facing_right:
+                self.image = pygame.transform.flip(self.image, True, False)  # Flip image if facing left
+
     def calc_gravity(self):
         if self.change_y == 0:
             self.change_y = 1
@@ -78,10 +100,12 @@ class Player(pygame.sprite.Sprite):
     def move_left(self):
         if not self.dashing:
             self.change_x = -6
+            self.facing_right = False  # Face left
 
     def move_right(self):
         if not self.dashing:
             self.change_x = 6
+            self.facing_right = True  # Face right
 
     def stop(self):
         if not self.dashing:
@@ -154,7 +178,7 @@ def game_loop():
 
         all_sprites.update()
 
-        screen.fill(WHITE)
+        screen.fill(PURPLE)
         all_sprites.draw(screen)
 
         # Draw ghost trail
@@ -166,4 +190,3 @@ def game_loop():
 
 if __name__ == "__main__":
     game_loop()
-
