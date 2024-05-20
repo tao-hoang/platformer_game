@@ -36,7 +36,7 @@ class Player(pygame.sprite.Sprite):
         self.rect.y = 500
         self.change_x = 0
         self.change_y = 0
-        self.jump_speed = -15
+        self.jump_speed = -10
         self.gravity = 0.6
         self.platforms = platforms
         self.jumps = 0  # Track the number of jumps performed
@@ -54,6 +54,9 @@ class Player(pygame.sprite.Sprite):
         self.animation_speed = 0.2  # Speed of animation (in seconds)
         self.last_update = pygame.time.get_ticks()
         self.facing_right = True  # Track direction
+        self.acceleration = 0.5  # Rate of acceleration
+        self.deceleration = 0.2  # Rate of deceleration
+        self.max_speed = 6  # Maximum movement speed
 
     def get_image(self, frame):
         rect = pygame.Rect(0, frame * self.frame_height, self.frame_width, self.frame_height)
@@ -76,6 +79,15 @@ class Player(pygame.sprite.Sprite):
         self.check_collision('x')
         self.rect.y += self.change_y
         self.check_collision('y')
+        # Ensure player doesn't go off the window edges
+        self.rect.x = max(0, min(self.rect.x, SCREEN_WIDTH - self.rect.width))
+    
+        self.rect.y += self.change_y
+        self.check_collision('y')
+    
+        # Ensure player doesn't go off the window edges
+        self.rect.y = max(0, min(self.rect.y, SCREEN_HEIGHT - self.rect.height))
+
 
         # Animation handling
         now = pygame.time.get_ticks()
@@ -99,17 +111,23 @@ class Player(pygame.sprite.Sprite):
 
     def move_left(self):
         if not self.dashing:
-            self.change_x = -6
+            if self.change_x < 0:  # If already moving left
+                self.change_x -= self.acceleration  # Accelerate further left
+            else:  # If not moving left
+                self.change_x = -self.max_speed  # Start moving left at max speed
             self.facing_right = False  # Face left
 
     def move_right(self):
         if not self.dashing:
-            self.change_x = 6
+            if self.change_x > 0:  # If already moving right
+                self.change_x += self.acceleration  # Accelerate further right
+            else:  # If not moving right
+                self.change_x = self.max_speed  # Start moving right at max speed
             self.facing_right = True  # Face right
 
     def stop(self):
         if not self.dashing:
-            self.change_x = 0
+            self.change_x = 0  # Reset horizontal movement speed to zero when key is released
 
     def dash(self, direction):
         if not self.dashing and pygame.time.get_ticks() - self.dash_cooldown_time >= self.dash_cooldown:
