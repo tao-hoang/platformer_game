@@ -60,6 +60,8 @@ class Player(pygame.sprite.Sprite):
         self.deceleration = 0.2  # Rate of deceleration
         self.max_speed = 6  # Maximum movement speed
         self.moving = False  # Whether the player is moving
+        self.on_wall = False  # Whether the player is touching a wall
+        self.wall_sticking = False  # Whether the player is sticking to a wall
 
     def get_idle_image(self, frame):
         rect = pygame.Rect(0, frame * self.frame_height, self.frame_width, self.frame_height)
@@ -82,7 +84,8 @@ class Player(pygame.sprite.Sprite):
                 ghost_image = self.image.copy()
                 ghost_image.set_alpha(100)  # Set alpha for transparency
                 self.ghost_trail.append((ghost_image, self.rect.topleft))  # Save position too
-        self.calc_gravity()
+        if not self.wall_sticking:
+            self.calc_gravity()
         self.rect.x += self.change_x
         self.check_collision('x')
         self.rect.y += self.change_y
@@ -116,7 +119,14 @@ class Player(pygame.sprite.Sprite):
             self.change_y += self.gravity
 
     def jump(self):
-        if self.jumps < self.max_jumps:
+        if self.wall_sticking:
+            self.wall_sticking = False
+            self.change_y = self.jump_speed
+            if self.facing_right:
+                self.change_x = -self.max_speed  # Jump left off the wall
+            else:
+                self.change_x = self.max_speed  # Jump right off the wall
+        elif self.jumps < self.max_jumps:
             self.change_y = self.jump_speed
             self.jumps += 1
 
@@ -153,11 +163,16 @@ class Player(pygame.sprite.Sprite):
     def check_collision(self, direction):
         if direction == 'x':
             collisions = pygame.sprite.spritecollide(self, self.platforms, False)
+            self.on_wall = False  # Reset wall status
             for platform in collisions:
                 if self.change_x > 0:  # Moving right
                     self.rect.right = platform.rect.left
+                    self.on_wall = True  # Touching a wall
                 elif self.change_x < 0:  # Moving left
                     self.rect.left = platform.rect.right
+                    self.on_wall = True  # Touching a wall
+            if self.on_wall and self.change_y > 0:
+                self.wall_stick()  # Stick to the wall if moving down
         elif direction == 'y':
             collisions = pygame.sprite.spritecollide(self, self.platforms, False)
             for platform in collisions:
@@ -165,22 +180,28 @@ class Player(pygame.sprite.Sprite):
                     self.rect.bottom = platform.rect.top
                     self.change_y = 0
                     self.jumps = 0  # Reset jumps when landing on a platform
+                    self.wall_sticking = False  # Stop wall sticking when landing on a platform
                 elif self.change_y < 0:  # Jumping up
                     self.rect.top = platform.rect.bottom
                     self.change_y = 0
+
+    def wall_stick(self):
+        self.wall_sticking = True
+        self.change_y = 1  # Reduce falling speed
 
 def game_loop():
     platforms = pygame.sprite.Group()
     platform1 = Platform(0, SCREEN_HEIGHT - 40, SCREEN_WIDTH, 40)
     platform2 = Platform(200, 400, 200, 20)
     platform3 = Platform(400, 300, 200, 20)
-    platforms.add(platform1, platform2, platform3)
+    wall = Platform(600, 200, 40, 400)  # Adding a wall
+    platforms.add(platform1, platform2, platform3, wall)
 
     player = Player(platforms)
 
     all_sprites = pygame.sprite.Group()
     all_sprites.add(player)
-    all_sprites.add(platform1, platform2, platform3)
+    all_sprites.add(platform1, platform2, platform3, wall)
 
     clock = pygame.time.Clock()
     while True:
