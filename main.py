@@ -27,10 +27,11 @@ class Platform(pygame.sprite.Sprite):
 class Player(pygame.sprite.Sprite):
     def __init__(self, platforms):
         super().__init__()
-        self.spritesheet = pygame.image.load('assets/idle_spritesheet.png').convert_alpha()
+        self.idle_spritesheet = pygame.image.load('assets/idle_spritesheet.png').convert_alpha()
+        self.running_spritesheet = pygame.image.load('assets/running_spritesheet.png').convert_alpha()
         self.frame_width = 64
         self.frame_height = 64
-        self.image = self.get_image(0)  # Initial frame
+        self.image = self.get_idle_image(0)  # Initial frame
         self.rect = self.image.get_rect()
         self.rect.x = 100
         self.rect.y = 500
@@ -50,17 +51,24 @@ class Player(pygame.sprite.Sprite):
         self.last_key_time = {'left': 0, 'right': 0}
         self.double_tap_threshold = 200  # in milliseconds
         self.ghost_trail = []  # List to hold ghost trail images
-        self.frame = 0  # Current frame
+        self.idle_frame = 0  # Current idle frame
+        self.running_frame = 0  # Current running frame
         self.animation_speed = 0.2  # Speed of animation (in seconds)
         self.last_update = pygame.time.get_ticks()
         self.facing_right = True  # Track direction
         self.acceleration = 0.5  # Rate of acceleration
         self.deceleration = 0.2  # Rate of deceleration
         self.max_speed = 6  # Maximum movement speed
+        self.moving = False  # Whether the player is moving
 
-    def get_image(self, frame):
+    def get_idle_image(self, frame):
         rect = pygame.Rect(0, frame * self.frame_height, self.frame_width, self.frame_height)
-        image = self.spritesheet.subsurface(rect).copy()
+        image = self.idle_spritesheet.subsurface(rect).copy()
+        return image
+
+    def get_running_image(self, frame):
+        rect = pygame.Rect(0, frame * self.frame_height, self.frame_width, self.frame_height)
+        image = self.running_spritesheet.subsurface(rect).copy()
         return image
 
     def update(self):
@@ -88,13 +96,16 @@ class Player(pygame.sprite.Sprite):
         # Ensure player doesn't go off the window edges
         self.rect.y = max(0, min(self.rect.y, SCREEN_HEIGHT - self.rect.height))
 
-
         # Animation handling
         now = pygame.time.get_ticks()
         if now - self.last_update > self.animation_speed * 1000:  # Convert to milliseconds
             self.last_update = now
-            self.frame = (self.frame + 1) % 2  # Assuming 2 frames in the sprite sheet
-            self.image = self.get_image(self.frame)
+            if self.moving:
+                self.running_frame = (self.running_frame + 1) % 3  # Assuming 3 frames in the running sprite sheet
+                self.image = self.get_running_image(self.running_frame)
+            else:
+                self.idle_frame = (self.idle_frame + 1) % 2  # Assuming 2 frames in the idle sprite sheet
+                self.image = self.get_idle_image(self.idle_frame)
             if not self.facing_right:
                 self.image = pygame.transform.flip(self.image, True, False)  # Flip image if facing left
 
@@ -116,6 +127,7 @@ class Player(pygame.sprite.Sprite):
             else:  # If not moving left
                 self.change_x = -self.max_speed  # Start moving left at max speed
             self.facing_right = False  # Face left
+            self.moving = True  # Set moving to true
 
     def move_right(self):
         if not self.dashing:
@@ -124,10 +136,12 @@ class Player(pygame.sprite.Sprite):
             else:  # If not moving right
                 self.change_x = self.max_speed  # Start moving right at max speed
             self.facing_right = True  # Face right
+            self.moving = True  # Set moving to true
 
     def stop(self):
         if not self.dashing:
             self.change_x = 0  # Reset horizontal movement speed to zero when key is released
+            self.moving = False  # Set moving to false
 
     def dash(self, direction):
         if not self.dashing and pygame.time.get_ticks() - self.dash_cooldown_time >= self.dash_cooldown:
