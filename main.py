@@ -172,7 +172,7 @@ class Player(pygame.sprite.Sprite):
                     self.rect.left = platform.rect.right
                     self.on_wall = True  # Touching a wall
             if self.on_wall and self.change_y > 0:
-                self.wall_stick()  # Stick to the wall if moving down
+                self.wall_stick()  # Stick to the wall if moving down and pressing against the wall
         elif direction == 'y':
             collisions = pygame.sprite.spritecollide(self, self.platforms, False)
             for platform in collisions:
@@ -186,8 +186,10 @@ class Player(pygame.sprite.Sprite):
                     self.change_y = 0
 
     def wall_stick(self):
-        self.wall_sticking = True
-        self.change_y = 1  # Reduce falling speed
+        keys = pygame.key.get_pressed()
+        if (keys[pygame.K_a] and self.change_x < 0) or (keys[pygame.K_d] and self.change_x > 0):
+            self.wall_sticking = True
+            self.change_y = 0  # Stop falling when sticking to the wall
 
 def game_loop():
     platforms = pygame.sprite.Group()
