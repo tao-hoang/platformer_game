@@ -27,7 +27,7 @@ class Platform(pygame.sprite.Sprite):
 class Player(pygame.sprite.Sprite):
     def __init__(self, platforms):
         super().__init__()
-        self.spritesheet = pygame.image.load('assets/player_spritesheet.png').convert_alpha()
+        self.spritesheet = pygame.image.load('assets/idle_spritesheet.png').convert_alpha()
         self.frame_width = 64
         self.frame_height = 64
         self.image = self.get_image(0)  # Initial frame
