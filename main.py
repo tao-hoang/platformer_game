@@ -169,9 +169,11 @@ class Player(pygame.sprite.Sprite):
                 self.change_x = -self.max_speed  # Jump left off the wall
             else:
                 self.change_x = self.max_speed  # Jump right off the wall
+            jump_sound.play()  # Play jump sound
         elif self.jumps < self.max_jumps:
             self.change_y = self.jump_speed
             self.jumps += 1
+            jump_sound.play()  # Play jump sound
 
     def move_left(self):
         if not self.dashing:
@@ -195,13 +197,15 @@ class Player(pygame.sprite.Sprite):
         if not self.dashing:
             self.change_x = 0  # Reset horizontal movement speed to zero when key is released
             self.moving = False  # Set moving to false
+            self.wall_sticking = False  # Stop sticking to the wall when key is released
 
     def dash(self, direction):
-        if not self.dashing and pygame.time.get_ticks() - self.dash_cooldown_time >= self.dash_cooldown:
+        if pygame.time.get_ticks() - self.dash_cooldown_time >= self.dash_cooldown:
             self.dashing = True
+            self.change_x = direction * self.dash_speed
             self.dash_time = pygame.time.get_ticks()
             self.dash_cooldown_time = pygame.time.get_ticks()
-            self.change_x = self.dash_speed * direction
+            dash_sound.play()  # Play dash sound
 
     def check_collision(self, direction):
         if direction == 'x':
@@ -309,5 +313,3 @@ def game_loop():
 
 if __name__ == "__main__":
     game_loop()
-
-
