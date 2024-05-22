@@ -19,10 +19,9 @@ grass_block_image = pygame.image.load('assets/grass/1.png').convert_alpha()
 stone_block_image = pygame.image.load('assets/stone/1.png').convert_alpha()
 dirt_block_image = pygame.image.load('assets/grass/5.png').convert_alpha()
 
-# Colors
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-GREY = (128, 128, 128)
+# Load sound effects
+jump_sound = pygame.mixer.Sound('assets/sfx/jump.wav')
+dash_sound = pygame.mixer.Sound('assets/sfx/dash.wav')
 
 class Platform(pygame.sprite.Sprite):
     def __init__(self, x, y, width, height, block_type):
