@@ -1,5 +1,6 @@
 import pygame
 import sys
+import random
 
 pygame.init()
 
@@ -9,20 +10,63 @@ SCREEN_HEIGHT = 600
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Platformer Game")
 
+# Load background image
+background_image = pygame.image.load('assets/background.png')
+background_image = pygame.transform.scale(background_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
+
+# Load block images
+grass_block_image = pygame.image.load('assets/grass/1.png').convert_alpha()
+stone_block_image = pygame.image.load('assets/stone/1.png').convert_alpha()
+dirt_block_image = pygame.image.load('assets/grass/5.png').convert_alpha()
+
 # Colors
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
-PURPLE = (128, 0, 128)
 GREY = (128, 128, 128)
 
 class Platform(pygame.sprite.Sprite):
-    def __init__(self, x, y, width, height):
+    def __init__(self, x, y, width, height, block_type):
         super().__init__()
         self.image = pygame.Surface((width, height))
-        self.image.fill(GREY)
+        if block_type == 'grass':
+            block_image = grass_block_image
+        elif block_type == 'stone':
+            block_image = stone_block_image
+        elif block_type == 'dirt':
+            block_image = dirt_block_image
+        
+        block_image = pygame.transform.scale(block_image, (16, 16))  # Scale the block image to 16x16
+
+        # Fill the platform with the block image
+        for i in range(0, width, 16):
+            for j in range(0, height, 16):
+                self.image.blit(block_image, (i, j))
+        
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
+
+        if block_type == 'grass':
+            self.create_dirt_underneath()
+
+    def create_dirt_underneath(self):
+        dirt = Platform(self.rect.x, self.rect.y + self.rect.height, self.rect.width, 16, 'dirt')
+        platforms.add(dirt)
+        all_sprites.add(dirt)
+
+class Cloud(pygame.sprite.Sprite):
+    def __init__(self, x, y, speed, image_path):
+        super().__init__()
+        self.image = pygame.image.load(image_path).convert_alpha()
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        self.speed = speed
+
+    def update(self):
+        self.rect.x += self.speed
+        if self.rect.x > SCREEN_WIDTH:
+            self.rect.x = -self.rect.width
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, platforms):
@@ -180,7 +224,6 @@ class Player(pygame.sprite.Sprite):
                     self.rect.bottom = platform.rect.top
                     self.change_y = 0
                     self.jumps = 0  # Reset jumps when landing on a platform
-                    self.wall_sticking = False  # Stop wall sticking when landing on a platform
                 elif self.change_y < 0:  # Jumping up
                     self.rect.top = platform.rect.bottom
                     self.change_y = 0
@@ -189,19 +232,35 @@ class Player(pygame.sprite.Sprite):
         keys = pygame.key.get_pressed()
         if (keys[pygame.K_a] and self.change_x < 0) or (keys[pygame.K_d] and self.change_x > 0):
             self.wall_sticking = True
-            self.change_y = 0  # Stop falling when sticking to the wall
+            self.change_y = 0  # Stop falling
+
+def generate_random_clouds(num_clouds, cloud_images):
+    clouds = pygame.sprite.Group()
+    for _ in range(num_clouds):
+        x = random.randint(-SCREEN_WIDTH, SCREEN_WIDTH)
+        y = random.randint(0, SCREEN_HEIGHT // 2)
+        speed = random.uniform(0.5, 2)
+        image_path = random.choice(cloud_images)
+        cloud = Cloud(x, y, speed, image_path)
+        clouds.add(cloud)
+    return clouds
 
 def game_loop():
+    global platforms, all_sprites
     platforms = pygame.sprite.Group()
-    platform1 = Platform(0, SCREEN_HEIGHT - 40, SCREEN_WIDTH, 40)
-    platform2 = Platform(200, 400, 200, 20)
-    platform3 = Platform(400, 300, 200, 20)
-    wall = Platform(600, 200, 40, 400)  # Adding a wall
+    all_sprites = pygame.sprite.Group()
+
+    platform1 = Platform(0, SCREEN_HEIGHT - 40, SCREEN_WIDTH, 40, 'grass')
+    platform2 = Platform(200, 400, 200, 20, 'grass')
+    platform3 = Platform(400, 300, 200, 20, 'grass')
+    wall = Platform(600, 200, 40, 400, 'stone')  # Adding a wall
     platforms.add(platform1, platform2, platform3, wall)
+
+    cloud_images = ['assets/clouds/cloud_1.png', 'assets/clouds/cloud_2.png']
+    clouds = generate_random_clouds(10, cloud_images)
 
     player = Player(platforms)
 
-    all_sprites = pygame.sprite.Group()
     all_sprites.add(player)
     all_sprites.add(platform1, platform2, platform3, wall)
 
@@ -232,8 +291,14 @@ def game_loop():
                     player.stop()
 
         all_sprites.update()
+        clouds.update()
 
-        screen.fill(PURPLE)
+        # Draw the background image
+        screen.blit(background_image, (0, 0))
+
+        # Draw clouds
+        clouds.draw(screen)
+
         all_sprites.draw(screen)
 
         # Draw ghost trail
@@ -245,3 +310,5 @@ def game_loop():
 
 if __name__ == "__main__":
     game_loop()
+
+
