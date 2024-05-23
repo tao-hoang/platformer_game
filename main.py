@@ -101,11 +101,6 @@ class Player(pygame.sprite.Sprite):
         self.running_frames = [pygame.image.load('assets/player/running/0.png').convert_alpha(), 
                                pygame.image.load('assets/player/running/1.png').convert_alpha(),
                                pygame.image.load('assets/player/running/2.png').convert_alpha()]
-        # Define the dimensions of the frames
-        self.idle_frame_width = 33
-        self.idle_frame_height = 45
-        self.running_frame_width = 36
-        self.running_frame_height = 42
         self.image = self.get_idle_image(0)  # Initial frame
         self.rect = self.image.get_rect()
         self.rect.x = 100
@@ -135,22 +130,20 @@ class Player(pygame.sprite.Sprite):
         self.last_update = pygame.time.get_ticks()
         self.facing_right = True  # Track direction
         self.last_direction = 'right'  # Track the last direction the player was facing
-        self.acceleration = 0.  # Rate of acceleration
-        self.deceleration = 0.2  # Rate of deceleration
+        self.acceleration = 0  # Rate of acceleration
+        self.deceleration = 0  # Rate of deceleration
         self.max_speed = 6  # Maximum movement speed
         self.moving = False  # Whether the player is moving
         self.on_wall = False  # Whether the player is touching a wall
         self.wall_sticking = False  # Whether the player is sticking to a wall
 
     def get_idle_image(self, frame):
-        # Adjust the idle frame dimensions
-        idle_frame = pygame.Surface((self.idle_frame_width, self.idle_frame_height), pygame.SRCALPHA).convert_alpha()
+        idle_frame = pygame.Surface((33, 45), pygame.SRCALPHA).convert_alpha()
         idle_frame.blit(self.idle_spritesheet[frame], (0, 0))
         return idle_frame
 
     def get_running_image(self, frame):
-        # Adjust the running frame dimensions
-        running_frame = pygame.Surface((self.running_frame_width, self.running_frame_height), pygame.SRCALPHA).convert_alpha()
+        running_frame = pygame.Surface((36, 42), pygame.SRCALPHA).convert_alpha()
         running_frame.blit(self.running_frames[frame], (0, 0))
         return running_frame
 
@@ -164,51 +157,43 @@ class Player(pygame.sprite.Sprite):
             self.stop()
 
         if self.moving:
-            # Update frame index to cycle through the running frames
             self.running_animation_counter += 1
             if self.running_animation_counter >= self.running_animation_speed:
                 self.running_animation_counter = 0
                 self.running_frame = (self.running_frame + 1) % len(self.running_frames)
                 self.image = self.get_running_image(self.running_frame)
+                if not self.facing_right:
+                    self.image = pygame.transform.flip(self.image, True, False)
         else:
-            # If not moving, reset frame index to 0 for next movement
             self.running_frame = 0
             self.idle_animation_counter += 1
             if self.idle_animation_counter >= self.idle_animation_speed:
                 self.idle_animation_counter = 0
                 self.idle_frame = (self.idle_frame + 1) % len(self.idle_spritesheet)
                 self.image = self.get_idle_image(self.idle_frame)
-        
+                if not self.facing_right:
+                    self.image = pygame.transform.flip(self.image, True, False)
+
         if self.dashing:
             if pygame.time.get_ticks() - self.dash_time >= self.dash_duration:
                 self.dashing = False
                 self.change_x = 0
-                self.ghost_trail = []  # Clear ghost trail after dashing
+                self.ghost_trail = []
             else:
-                # Create ghost trail image and add to the list
                 ghost_image = self.image.copy()
-                ghost_image.set_alpha(100)  # Set alpha for transparency
-                self.ghost_trail.append((ghost_image, self.rect.topleft))  # Save position too
+                ghost_image.set_alpha(100)
+                self.ghost_trail.append((ghost_image, self.rect.topleft))
+
+        self.calc_gravity()
         
-        if not self.wall_sticking:
-            self.calc_gravity()
-        
-        self.rect.x += self.change_x
-        self.check_collision('x')
         self.rect.y += self.change_y
         self.check_collision('y')
 
-        # Ensure player doesn't go off the window edges
+        self.rect.x += self.change_x
+        self.check_collision('x')
+
         self.rect.x = max(0, min(self.rect.x, SCREEN_WIDTH - self.rect.width))
         self.rect.y = max(0, min(self.rect.y, SCREEN_HEIGHT - self.rect.height))
-
-        # Handle facing direction
-        if self.facing_right and self.last_direction != 'right':
-            self.image = pygame.transform.flip(self.image, True, False)  # Flip image if facing left
-            self.last_direction = 'right'
-        elif not self.facing_right and self.last_direction != 'left':
-            self.image = pygame.transform.flip(self.image, True, False)  # Flip image if facing right
-            self.last_direction = 'left'
 
     def calc_gravity(self):
         if self.change_y == 0:
@@ -221,44 +206,38 @@ class Player(pygame.sprite.Sprite):
             self.wall_sticking = False
             self.change_y = self.jump_speed
             if self.facing_right:
-                self.change_x = -self.max_speed  # Jump left off the wall
+                self.change_x = -self.max_speed
             else:
-                self.change_x = self.max_speed  # Jump right off the wall
-            jump_sound.play()  # Play jump sound
+                self.change_x = self.max_speed
+            jump_sound.play()
         elif self.jumps < self.max_jumps:
             self.change_y = self.jump_speed
             self.jumps += 1
-            jump_sound.play()  # Play jump sound
+            jump_sound.play()
 
     def move_left(self):
         if not self.dashing:
-            if self.change_x < 0:  # If already moving left
-                self.change_x -= self.acceleration  # Accelerate further left
-            else:  # If not moving left
-                self.change_x = -self.max_speed  # Start moving left at max speed
-            self.facing_right = False  # Face left
-            self.moving = True  # Set moving to true
+            self.change_x = -self.max_speed
+            self.facing_right = False
+            self.moving = True
             if self.last_direction == 'right':
-                self.image = pygame.transform.flip(self.image, True, False)  # Flip image if previously facing right
+                self.image = pygame.transform.flip(self.image, True, False)
                 self.last_direction = 'left'
 
     def move_right(self):
         if not self.dashing:
-            if self.change_x > 0:  # If already moving right
-                self.change_x += self.acceleration  # Accelerate further right
-            else:  # If not moving right
-                self.change_x = self.max_speed  # Start moving right at max speed
-            self.facing_right = True  # Face right
-            self.moving = True  # Set moving to true
+            self.change_x = self.max_speed
+            self.facing_right = True
+            self.moving = True
             if self.last_direction == 'left':
-                self.image = pygame.transform.flip(self.image, True, False)  # Flip image if previously facing left
+                self.image = pygame.transform.flip(self.image, True, False)
                 self.last_direction = 'right'
 
     def stop(self):
         if not self.dashing:
-            self.change_x = 0  # Reset horizontal movement speed to zero when key is released
-            self.moving = False  # Set moving to false
-            self.wall_sticking = False  # Stop sticking to the wall when key is released
+            self.change_x = 0
+            self.moving = False
+            self.wall_sticking = False
 
     def dash(self, direction):
         if pygame.time.get_ticks() - self.dash_cooldown_time >= self.dash_cooldown:
@@ -266,29 +245,29 @@ class Player(pygame.sprite.Sprite):
             self.change_x = direction * self.dash_speed
             self.dash_time = pygame.time.get_ticks()
             self.dash_cooldown_time = pygame.time.get_ticks()
-            dash_sound.play()  # Play dash sound
+            dash_sound.play()
 
     def check_collision(self, direction):
         if direction == 'x':
             collisions = pygame.sprite.spritecollide(self, self.platforms, False)
-            self.on_wall = False  # Reset wall status
+            self.on_wall = False
             for platform in collisions:
-                if self.change_x > 0:  # Moving right
+                if self.change_x > 0:
                     self.rect.right = platform.rect.left
-                    self.on_wall = True  # Touching a wall
-                elif self.change_x < 0:  # Moving left
+                    self.on_wall = True
+                elif self.change_x < 0:
                     self.rect.left = platform.rect.right
-                    self.on_wall = True  # Touching a wall
+                    self.on_wall = True
             if self.on_wall and self.change_y > 0:
-                self.wall_stick()  # Stick to the wall if moving down and pressing against the wall
+                self.wall_stick()
         elif direction == 'y':
             collisions = pygame.sprite.spritecollide(self, self.platforms, False)
             for platform in collisions:
-                if self.change_y > 0:  # Falling down
+                if self.change_y > 0:
                     self.rect.bottom = platform.rect.top
                     self.change_y = 0
-                    self.jumps = 0  # Reset jumps when landing on a platform
-                elif self.change_y < 0:  # Jumping up
+                    self.jumps = 0
+                elif self.change_y < 0:
                     self.rect.top = platform.rect.bottom
                     self.change_y = 0
 
@@ -296,7 +275,8 @@ class Player(pygame.sprite.Sprite):
         keys = pygame.key.get_pressed()
         if (keys[pygame.K_a] and self.change_x < 0) or (keys[pygame.K_d] and self.change_x > 0):
             self.wall_sticking = True
-            self.change_y = 0  # Stop falling
+            self.change_y = 0
+
 
 def generate_random_clouds(num_clouds, cloud_images):
     clouds = pygame.sprite.Group()
