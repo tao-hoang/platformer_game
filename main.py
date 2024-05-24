@@ -1,6 +1,7 @@
 import pygame
 import sys
 import random
+from enemies import Enemy  # Import the Enemy class
 
 pygame.init()
 
@@ -26,21 +27,20 @@ dash_sound = pygame.mixer.Sound('assets/sfx/dash.wav')
 class Platform(pygame.sprite.Sprite):
     def __init__(self, x, y, width, height, block_type):
         super().__init__()
-        self.image = pygame.Surface((width, height), pygame.SRCALPHA)  # Allow transparency
+        self.image = pygame.Surface((width, height), pygame.SRCALPHA)
         if block_type == 'grass':
             block_image = grass_block_image
         elif block_type == 'stone':
             block_image = stone_block_image
         elif block_type == 'dirt':
             block_image = dirt_block_image
-        
-        block_image = pygame.transform.scale(block_image, (16, 16))  # Scale the block image to 16x16
 
-        # Fill the platform with the block image
+        block_image = pygame.transform.scale(block_image, (16, 16))
+
         for i in range(0, width, 16):
             for j in range(0, height, 16):
                 self.image.blit(block_image, (i, j))
-        
+
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
@@ -55,35 +55,19 @@ class Platform(pygame.sprite.Sprite):
         all_sprites.add(dirt)
 
     def add_decor(self):
-        # Load decor images
         decor_images = ['assets/large_decor/0.png', 'assets/large_decor/1.png', 'assets/large_decor/2.png']
-        for _ in range(random.randint(1, 3)):  # Add 1 to 3 decor elements per grass platform
+        for _ in range(random.randint(1, 3)):
             decor_image = random.choice(decor_images)
             decor_surface = pygame.image.load(decor_image).convert_alpha()
             decor_width = decor_surface.get_width()
             decor_height = decor_surface.get_height()
 
-            # Ensure decor is placed within the boundaries of the grass block
             decor_x = self.rect.x + random.randint(0, self.rect.width - decor_width)
-            decor_y = self.rect.y - decor_height  # Place decor on top of the grass block
+            decor_y = self.rect.y - decor_height
 
             decor = Decor(decor_x, decor_y, decor_image)
-            all_sprites.add(decor)
             decor_group.add(decor)
-
-class Cloud(pygame.sprite.Sprite):
-    def __init__(self, x, y, speed, image_path):
-        super().__init__()
-        self.image = pygame.image.load(image_path).convert_alpha()
-        self.rect = self.image.get_rect()
-        self.rect.x = x
-        self.rect.y = y
-        self.speed = speed
-
-    def update(self):
-        self.rect.x += self.speed
-        if self.rect.x > SCREEN_WIDTH:
-            self.rect.x = -self.rect.width
+            all_sprites.add(decor)
 
 class Decor(pygame.sprite.Sprite):
     def __init__(self, x, y, image_path):
@@ -96,46 +80,44 @@ class Decor(pygame.sprite.Sprite):
 class Player(pygame.sprite.Sprite):
     def __init__(self, platforms):
         super().__init__()
-        self.idle_spritesheet = [pygame.image.load('assets/player/idle/0.png').convert_alpha(),
-                                 pygame.image.load('assets/player/idle/1.png').convert_alpha()]
-        self.running_frames = [pygame.image.load('assets/player/running/0.png').convert_alpha(), 
-                               pygame.image.load('assets/player/running/1.png').convert_alpha(),
-                               pygame.image.load('assets/player/running/2.png').convert_alpha()]
-        self.image = self.get_idle_image(0)  # Initial frame
+        self.idle_spritesheet = [pygame.image.load(f'assets/player/idle/{i}.png').convert_alpha() for i in range(4)]
+        self.running_frames = [pygame.image.load(f'assets/player/running/{i}.png').convert_alpha() for i in range(6)]
+        self.image = self.get_idle_image(0)
         self.rect = self.image.get_rect()
         self.rect.x = 100
-        self.rect.y = 500
+        self.rect.y = SCREEN_HEIGHT - self.rect.height - 100
         self.change_x = 0
         self.change_y = 0
-        self.jump_speed = -10
         self.gravity = 0.6
+        self.jump_speed = -12
         self.platforms = platforms
-        self.jumps = 0  # Track the number of jumps performed
-        self.max_jumps = 2  # Allow double jump
-        self.dash_speed = 80  # Increased dash speed
-        self.dash_duration = 40  # Adjusted dash duration
+        self.jumps = 0
+        self.max_jumps = 2
+        self.dash_speed = 80
+        self.dash_duration = 40
         self.dash_cooldown = 30
         self.dashing = False
         self.dash_time = 0
         self.dash_cooldown_time = 0
         self.last_key_time = {'left': 0, 'right': 0}
-        self.double_tap_threshold = 200  # in milliseconds
-        self.ghost_trail = []  # List to hold ghost trail images
-        self.idle_frame = 0  # Current idle frame
-        self.running_frame = 0  # Current running frame
-        self.idle_animation_speed = 24  # Number of frames per idle image
-        self.running_animation_speed = 8  # Number of frames per running image
-        self.idle_animation_counter = 0  # Frame counter for idle animation speed
-        self.running_animation_counter = 0  # Frame counter for running animation speed
+        self.double_tap_threshold = 200
+        self.ghost_trail = []
+        self.idle_frame = 0
+        self.running_frame = 0
+        self.idle_animation_speed = 24
+        self.running_animation_speed = 8
+        self.idle_animation_counter = 0
+        self.running_animation_counter = 0
         self.last_update = pygame.time.get_ticks()
-        self.facing_right = True  # Track direction
-        self.last_direction = 'right'  # Track the last direction the player was facing
-        self.acceleration = 0  # Rate of acceleration
-        self.deceleration = 0  # Rate of deceleration
-        self.max_speed = 6  # Maximum movement speed
-        self.moving = False  # Whether the player is moving
-        self.on_wall = False  # Whether the player is touching a wall
-        self.wall_sticking = False  # Whether the player is sticking to a wall
+        self.facing_right = True
+        self.last_direction = 'right'
+        self.acceleration = 0
+        self.deceleration = 0
+        self.max_speed = 6
+        self.moving = False
+        self.on_wall = False
+        self.wall_sticking = False
+        self.health = 100  # Player health
 
     def get_idle_image(self, frame):
         idle_frame = pygame.Surface((33, 45), pygame.SRCALPHA).convert_alpha()
@@ -185,7 +167,7 @@ class Player(pygame.sprite.Sprite):
                 self.ghost_trail.append((ghost_image, self.rect.topleft))
 
         self.calc_gravity()
-        
+
         self.rect.y += self.change_y
         self.check_collision('y')
 
@@ -277,6 +259,29 @@ class Player(pygame.sprite.Sprite):
             self.wall_sticking = True
             self.change_y = 0
 
+    def take_damage(self, amount):
+        self.health -= amount
+        if self.health <= 0:
+            self.die()
+
+    def die(self):
+        print("Player has died")
+        pygame.quit()
+        sys.exit()
+
+class Cloud(pygame.sprite.Sprite):
+    def __init__(self, x, y, speed, image_path):
+        super().__init__()
+        self.image = pygame.image.load(image_path).convert_alpha()
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        self.speed = speed
+
+    def update(self):
+        self.rect.x += self.speed
+        if self.rect.x > SCREEN_WIDTH:
+            self.rect.x = -self.rect.width
 
 def generate_random_clouds(num_clouds, cloud_images):
     clouds = pygame.sprite.Group()
@@ -298,7 +303,7 @@ def game_loop():
     platform1 = Platform(0, SCREEN_HEIGHT - 40, SCREEN_WIDTH, 40, 'grass')
     platform2 = Platform(200, 400, 200, 20, 'grass')
     platform3 = Platform(400, 300, 200, 20, 'grass')
-    wall = Platform(600, 200, 40, 400, 'stone')  # Adding a wall
+    wall = Platform(600, 200, 40, 400, 'stone')
     platforms.add(platform1, platform2, platform3, wall)
 
     cloud_images = ['assets/clouds/cloud_1.png', 'assets/clouds/cloud_2.png']
@@ -306,46 +311,54 @@ def game_loop():
 
     player = Player(platforms)
 
+    enemy1 = Enemy(300, 500, platforms, player)  # Create an enemy instance
+    enemy2 = Enemy(500, 350, platforms, player)  # Create another enemy instance
+
     all_sprites.add(player)
+    all_sprites.add(enemy1, enemy2)
     all_sprites.add(platform1, platform2, platform3, wall)
+    all_sprites.add(clouds)  # Add clouds to all_sprites group
 
     clock = pygame.time.Clock()
-    while True:
-        current_time = pygame.time.get_ticks()
+    running = True
+
+    while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            elif event.type == pygame.KEYDOWN:
+                running = False
+
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_w:
+                    player.jump()
+
                 if event.key == pygame.K_a:
+                    current_time = pygame.time.get_ticks()
                     if current_time - player.last_key_time['left'] < player.double_tap_threshold:
                         player.dash(-1)
                     player.last_key_time['left'] = current_time
-                elif event.key == pygame.K_d:
+
+                if event.key == pygame.K_d:
+                    current_time = pygame.time.get_ticks()
                     if current_time - player.last_key_time['right'] < player.double_tap_threshold:
                         player.dash(1)
                     player.last_key_time['right'] = current_time
-                elif event.key == pygame.K_w:
-                    player.jump()
 
         all_sprites.update()
-        clouds.update()
 
-        # Draw the background image
         screen.blit(background_image, (0, 0))
-
-        # Draw clouds
+        clouds.update()
         clouds.draw(screen)
-
         all_sprites.draw(screen)
-        decor_group.draw(screen)  # Draw decor elements separately
 
-        # Draw ghost trail
-        for ghost_image, ghost_pos in player.ghost_trail:
-            screen.blit(ghost_image, ghost_pos)
+        if player.dashing:
+            for ghost_image, position in player.ghost_trail:
+                screen.blit(ghost_image, position)
 
         pygame.display.flip()
         clock.tick(60)
+
+    pygame.quit()
+    sys.exit()
 
 if __name__ == "__main__":
     game_loop()
