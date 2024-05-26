@@ -1,7 +1,6 @@
 import pygame
 import sys
 import random
-from enemies import Enemy  # Import the Enemy class
 
 pygame.init()
 
@@ -9,7 +8,7 @@ pygame.init()
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Platformer Game")
+pygame.display.set_caption("Ninjump")
 
 # Load background image
 background_image = pygame.image.load('assets/background.png')
@@ -45,43 +44,11 @@ class Platform(pygame.sprite.Sprite):
         self.rect.x = x
         self.rect.y = y
 
-        if block_type == 'grass':
-            self.create_dirt_underneath()
-            self.add_decor()
-
-    def create_dirt_underneath(self):
-        dirt = Platform(self.rect.x, self.rect.y + self.rect.height, self.rect.width, 16, 'dirt')
-        platforms.add(dirt)
-        all_sprites.add(dirt)
-
-    def add_decor(self):
-        decor_images = ['assets/large_decor/0.png', 'assets/large_decor/1.png', 'assets/large_decor/2.png']
-        for _ in range(random.randint(1, 3)):
-            decor_image = random.choice(decor_images)
-            decor_surface = pygame.image.load(decor_image).convert_alpha()
-            decor_width = decor_surface.get_width()
-            decor_height = decor_surface.get_height()
-
-            decor_x = self.rect.x + random.randint(0, self.rect.width - decor_width)
-            decor_y = self.rect.y - decor_height
-
-            decor = Decor(decor_x, decor_y, decor_image)
-            decor_group.add(decor)
-            all_sprites.add(decor)
-
-class Decor(pygame.sprite.Sprite):
-    def __init__(self, x, y, image_path):
-        super().__init__()
-        self.image = pygame.image.load(image_path).convert_alpha()
-        self.rect = self.image.get_rect()
-        self.rect.x = x
-        self.rect.y = y
-
 class Player(pygame.sprite.Sprite):
     def __init__(self, platforms):
         super().__init__()
-        self.idle_spritesheet = [pygame.image.load(f'assets/player/idle/{i}.png').convert_alpha() for i in range(4)]
-        self.running_frames = [pygame.image.load(f'assets/player/running/{i}.png').convert_alpha() for i in range(6)]
+        self.idle_spritesheet = [pygame.image.load(f'assets/player/idle/0.png').convert_alpha(), pygame.image.load(f'assets/player/idle/1.png').convert_alpha() ]
+        self.running_frames = [pygame.image.load(f'assets/player/running/0.png').convert_alpha(), pygame.image.load(f'assets/player/running/1.png').convert_alpha()]
         self.image = self.get_idle_image(0)
         self.rect = self.image.get_rect()
         self.rect.x = 100
@@ -118,6 +85,7 @@ class Player(pygame.sprite.Sprite):
         self.on_wall = False
         self.wall_sticking = False
         self.health = 100  # Player health
+        self.score = 0  # Player score
 
     def get_idle_image(self, frame):
         idle_frame = pygame.Surface((33, 45), pygame.SRCALPHA).convert_alpha()
@@ -175,7 +143,13 @@ class Player(pygame.sprite.Sprite):
         self.check_collision('x')
 
         self.rect.x = max(0, min(self.rect.x, SCREEN_WIDTH - self.rect.width))
-        self.rect.y = max(0, min(self.rect.y, SCREEN_HEIGHT - self.rect.height))
+        
+        if self.rect.top > SCREEN_HEIGHT:
+            self.die()
+
+        # Move screen down if player is high enough
+        if self.rect.top <= SCREEN_HEIGHT / 3:
+            self.move_screen_down()
 
     def calc_gravity(self):
         if self.change_y == 0:
@@ -269,6 +243,15 @@ class Player(pygame.sprite.Sprite):
         pygame.quit()
         sys.exit()
 
+    def move_screen_down(self):
+        self.rect.y += 1
+        for platform in self.platforms:
+            platform.rect.y += 1
+            if platform.rect.top > SCREEN_HEIGHT:
+                platform.kill()
+        self.score += 1
+        generate_platforms(self.platforms)
+
 class Cloud(pygame.sprite.Sprite):
     def __init__(self, x, y, speed, image_path):
         super().__init__()
@@ -276,7 +259,7 @@ class Cloud(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
-        self.speed = speed
+        self.speed = 0.5
 
     def update(self):
         self.rect.x += self.speed
@@ -294,30 +277,32 @@ def generate_random_clouds(num_clouds, cloud_images):
         clouds.add(cloud)
     return clouds
 
+def generate_platforms(platforms):
+    while len(platforms) < 10:
+        x = random.randint(0, SCREEN_WIDTH - 100)
+        y = random.randint(-SCREEN_HEIGHT, 0)
+        platform = Platform(x, y, 100, 20, 'grass')
+        platforms.add(platform)
+        all_sprites.add(platform)
+
 def game_loop():
-    global platforms, all_sprites, decor_group
+    global platforms, all_sprites
     platforms = pygame.sprite.Group()
     all_sprites = pygame.sprite.Group()
-    decor_group = pygame.sprite.Group()
 
     platform1 = Platform(0, SCREEN_HEIGHT - 40, SCREEN_WIDTH, 40, 'grass')
-    platform2 = Platform(200, 400, 200, 20, 'grass')
-    platform3 = Platform(400, 300, 200, 20, 'grass')
-    wall = Platform(600, 200, 40, 400, 'stone')
-    platforms.add(platform1, platform2, platform3, wall)
+    platforms.add(platform1)
+    all_sprites.add(platform1)
 
     cloud_images = ['assets/clouds/cloud_1.png', 'assets/clouds/cloud_2.png']
     clouds = generate_random_clouds(10, cloud_images)
 
     player = Player(platforms)
 
-    enemy1 = Enemy(300, 500, platforms, player)  # Create an enemy instance
-    enemy2 = Enemy(500, 350, platforms, player)  # Create another enemy instance
-
     all_sprites.add(player)
-    all_sprites.add(enemy1, enemy2)
-    all_sprites.add(platform1, platform2, platform3, wall)
-    all_sprites.add(clouds)  # Add clouds to all_sprites group
+    all_sprites.add(clouds)
+
+    generate_platforms(platforms)
 
     clock = pygame.time.Clock()
     running = True

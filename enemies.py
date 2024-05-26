@@ -4,12 +4,12 @@ import random
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, x, y, platforms, player):
         super().__init__()
-        self.idle_frames = [pygame.image.load('assets/enemy/idle/0.png').convert_alpha(),
-                            pygame.image.load('assets/enemy/idle/1.png').convert_alpha()]
-        self.running_frames = [pygame.image.load('assets/enemy/running/0.png').convert_alpha(),
-                               pygame.image.load('assets/enemy/running/1.png').convert_alpha()]
-        self.attack_frames = [pygame.image.load('assets/enemy/attack/0.png').convert_alpha(),
-                              pygame.image.load('assets/enemy/attack/1.png').convert_alpha()]
+        #self.idle_frames = [pygame.image.load('assets/enemy/idle/0.png').convert_alpha(),
+                 #           pygame.image.load('assets/enemy/idle/1.png').convert_alpha()]
+        #self.running_frames = [pygame.image.load('assets/enemy/running/0.png').convert_alpha(),
+                       #        pygame.image.load('assets/enemy/running/1.png').convert_alpha()]
+       # self.attack_frames = [pygame.image.load('assets/enemy/attack/0.png').convert_alpha(),
+                  #           pygame.image.load('assets/enemy/attack/1.png').convert_alpha()]
         self.image = self.get_idle_image(0)
         self.rect = self.image.get_rect()
         self.rect.x = x
