@@ -5,8 +5,8 @@ import random
 pygame.init()
 
 # Screen dimensions
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
+SCREEN_WIDTH = 500
+SCREEN_HEIGHT = 500
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Ninjump")
 
@@ -22,6 +22,13 @@ dirt_block_image = pygame.image.load('assets/grass/5.png').convert_alpha()
 # Load sound effects
 jump_sound = pygame.mixer.Sound('assets/sfx/jump.wav')
 dash_sound = pygame.mixer.Sound('assets/sfx/dash.wav')
+shoot_sound = pygame.mixer.Sound('assets/sfx/shoot.wav')  # Add shooting sound
+
+# Load projectile image
+projectile_image = pygame.image.load('assets/player/shuriken.png').convert_alpha()  # Make sure to provide the correct path to your projectile image
+
+# Initialize font
+font = pygame.font.Font(None, 36)
 
 class Platform(pygame.sprite.Sprite):
     def __init__(self, x, y, width, height, block_type):
@@ -43,6 +50,21 @@ class Platform(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
+
+class Projectile(pygame.sprite.Sprite):
+    def __init__(self, x, y, direction):
+        super().__init__()
+        self.image = projectile_image  # Use the loaded projectile image
+        self.rect = self.image.get_rect()
+        self.rect.center = (x, y)
+        self.speed = 10
+        self.direction = direction
+
+    def update(self):
+        self.rect.x += self.direction[0] * self.speed
+        self.rect.y += self.direction[1] * self.speed
+        if self.rect.right < 0 or self.rect.left > SCREEN_WIDTH or self.rect.bottom < 0 or self.rect.top > SCREEN_HEIGHT:
+            self.kill()
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, platforms):
@@ -249,8 +271,15 @@ class Player(pygame.sprite.Sprite):
             platform.rect.y += 1
             if platform.rect.top > SCREEN_HEIGHT:
                 platform.kill()
-        self.score += 1
+        self.score += 1  # Increase score when screen moves down
         generate_platforms(self.platforms)
+
+    def shoot(self, direction):
+        if direction != (0, 0):
+            projectile = Projectile(self.rect.centerx, self.rect.centery, direction)
+            all_sprites.add(projectile)
+            projectiles.add(projectile)
+            shoot_sound.play()
 
 class Cloud(pygame.sprite.Sprite):
     def __init__(self, x, y, speed, image_path):
@@ -278,17 +307,43 @@ def generate_random_clouds(num_clouds, cloud_images):
     return clouds
 
 def generate_platforms(platforms):
-    while len(platforms) < 10:
-        x = random.randint(0, SCREEN_WIDTH - 100)
-        y = random.randint(-SCREEN_HEIGHT, 0)
-        platform = Platform(x, y, 100, 20, 'grass')
-        platforms.add(platform)
-        all_sprites.add(platform)
+    max_platforms = 10
+    platform_width = 100
+    platform_height = 20
+    min_distance = 50
+
+    existing_platforms = [(p.rect.x, p.rect.y, p.rect.width, p.rect.height) for p in platforms]
+
+    while len(platforms) < max_platforms:
+        x = random.randint(0, SCREEN_WIDTH - platform_width)
+        y = random.randint(-SCREEN_HEIGHT, SCREEN_HEIGHT // 3)
+
+        # Ensure initial platforms are within jumpable distance for the player
+        if len(existing_platforms) < 3:
+            y = SCREEN_HEIGHT - 60 - len(existing_platforms) * 50
+
+        # Check for overlap
+        overlapping = False
+        for px, py, pw, ph in existing_platforms:
+            if (x < px + pw and x + platform_width > px and y < py + ph and y + platform_height > py):
+                overlapping = True
+                break
+
+        if not overlapping:
+            platform = Platform(x, y, platform_width, platform_height, 'grass')
+            platforms.add(platform)
+            all_sprites.add(platform)
+            existing_platforms.append((x, y, platform_width, platform_height))
+
+def draw_score(score):
+    score_text = font.render(f"Score: {score}", True, (255, 255, 255))
+    screen.blit(score_text, (10, 10))
 
 def game_loop():
-    global platforms, all_sprites
+    global platforms, all_sprites, projectiles
     platforms = pygame.sprite.Group()
     all_sprites = pygame.sprite.Group()
+    projectiles = pygame.sprite.Group()
 
     platform1 = Platform(0, SCREEN_HEIGHT - 40, SCREEN_WIDTH, 40, 'grass')
     platforms.add(platform1)
@@ -328,12 +383,28 @@ def game_loop():
                         player.dash(1)
                     player.last_key_time['right'] = current_time
 
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:  # Left mouse button
+                    keys = pygame.key.get_pressed()
+                    direction = [0, 0]
+                    if keys[pygame.K_w]:
+                        direction[1] = -1
+                    if keys[pygame.K_s]:
+                        direction[1] = 1
+                    if keys[pygame.K_a]:
+                        direction[0] = -1
+                    if keys[pygame.K_d]:
+                        direction[0] = 1
+
+                    player.shoot(direction)
+
         all_sprites.update()
 
         screen.blit(background_image, (0, 0))
         clouds.update()
         clouds.draw(screen)
         all_sprites.draw(screen)
+        draw_score(player.score)  # Draw the score
 
         if player.dashing:
             for ghost_image, position in player.ghost_trail:
